@@ -1,0 +1,8 @@
+name: MiracleGrow
+description: Bukkit Minecraft plugin that tracks and restores blocks to keep your worlds looking fresh!
+author: megabytes, verrier
+website: http://minecarts.com/
+
+main: com.minecarts.miraclegrow.MiracleGrow
+version: ${pom.version}
+depend: [DBQuery]
