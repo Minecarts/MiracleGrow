@@ -15,13 +15,15 @@ import org.bukkit.event.Listener;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.Location;
-import org.bukkit.Material;
 
 import org.bukkit.event.Event.Type;
 import org.bukkit.event.Event.Priority;
 import static org.bukkit.event.Event.Type.*;
 
 import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.HashSet;
+
 
 public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     private static final Logger logger = Logger.getLogger("com.minecarts.miraclegrow"); 
@@ -29,6 +31,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     private PluginDescriptionFile pdf;
     
     protected AsyncQueryHelper db;
+    protected HashSet<BlockStateRestore> queue = new HashSet<BlockStateRestore>();
     
     public void onEnable() {
         pdf = getDescription();
@@ -73,32 +76,97 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     }
     
     
-    public void scheduleBlockRestore(Block block) {
-        scheduleBlockRestore(block.getState());
+    
+    class BlockStateRestore {
+        public final BlockState state;
+        public final int seconds;
+        
+        public BlockStateRestore(Block block, int seconds) {
+            this(block.getState(), seconds);
+        }
+        public BlockStateRestore(BlockState state, int seconds) {
+            this.state = state;
+            this.seconds = seconds;
+        }
+        
+        @Override
+        public boolean equals(Object o) {
+            if(o == this) return true;
+            if(!(o instanceof BlockStateRestore)) return false;
+            
+            return state.getBlock().equals(((BlockStateRestore) o).state.getBlock());
+        }
+        
+        @Override
+        public int hashCode() {
+            return state.getBlock().hashCode();
+        }
     }
-    public void scheduleBlockRestore(Block block, int seconds) {
-        scheduleBlockRestore(block.getState(), seconds);
+    
+    public void scheduleRestore(Block block) {
+        scheduleRestore(block.getState());
     }
-    public void scheduleBlockRestore(BlockState state) {
-        scheduleBlockRestore(state, getBlockRestoreTime(state));
+    public void scheduleRestore(Block block, int seconds) {
+        scheduleRestore(block.getState(), seconds);
     }
-    public void scheduleBlockRestore(BlockState state, int seconds) {
-        final Location loc = state.getBlock().getLocation();
+    public void scheduleRestore(BlockState state) {
+        scheduleRestore(state, getBlockRestoreTime(state));
+    }
+    public void scheduleRestore(BlockState state, int seconds) {
+        logf("restoring block state {0} in {1} seconds", state.getType(), seconds);
+        
+        BlockStateRestore restore = new BlockStateRestore(state, seconds);
+        logf("{0}", restore);
+        
+        if(queue.contains(restore)) {
+            log("queue already contains restore, removing old value...");
+            queue.remove(restore);
+        }
+        
+        log("restore added to queue");
+        queue.add(restore);
+        logf("queue size: {0}", queue.size());
+    }
+    
+    
+    public void processQueue() {
+        if(queue.isEmpty()) return;
+        
+        StringBuilder query = new StringBuilder("INSERT INTO `block_restore_queue` (`world`, `x`, `y`, `z`, `type`, `data`, `when`) VALUES ");
+        ArrayList<Object> params = new ArrayList();
+        
+        for(BlockStateRestore restore : queue) {
+            query.append("(?, ?, ?, ?, ?, ?, TIMESTAMPADD(SECOND, ?, NOW())), ");
+            params.add(restore.state.getBlock().getWorld().getName());
+            params.add(restore.state.getBlock().getX());
+            params.add(restore.state.getBlock().getY());
+            params.add(restore.state.getBlock().getZ());
+            params.add(restore.state.getTypeId());
+            params.add(restore.state.getData().getData());
+            params.add(restore.seconds);
+        }
+        // TODO: requeue in case of query failure
+        queue.clear();
+        
+        query.replace(query.length() - 2, query.length(), " ON DUPLICATE KEY UPDATE `when`=VALUES(`when`)");
+        log(query.toString());
+        params.add(new Callback() {
+            @Override
+            public void onComplete(Integer affected) {
+                logf("{0} rows affected", affected);
+            }
+        });
         
         try {
-            db.affected("INSERT INTO `block_restore_queue` (`world`, `x`, `y`, `z`, `type`, `data`, `when`) VALUES (?, ?, ?, ?, ?, ?, TIMESTAMPADD(SECOND, ?, NOW())) ON DUPLICATE KEY UPDATE `when`=VALUES(`when`)", loc.getWorld().getName(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), state.getTypeId(), state.getData().getData(), seconds, new Callback() {
-                @Override
-                public void onComplete(Integer affected) {
-                    logf("{0} rows affected", affected);
-                }
-            });
+            db.affected(query.toString(), params.toArray());
         }
         catch(Exception e) {
             // shouldn't get here with async
         }
-        
-        logf("Scheduling restore for block {1} at {0} in {2} seconds", loc, state.getType(), seconds);
     }
+    
+    
+    
     
     class Callback extends com.minecarts.dbquery.Callback {
         

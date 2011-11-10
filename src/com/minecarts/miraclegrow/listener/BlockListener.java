@@ -14,12 +14,12 @@ public class BlockListener extends org.bukkit.event.block.BlockListener {
     
     @Override
     public void onBlockPlace(BlockPlaceEvent event) {
-        plugin.scheduleBlockRestore(event.getBlockReplacedState());
+        plugin.scheduleRestore(event.getBlockReplacedState());
     }
     
     @Override
     public void onBlockBreak(BlockBreakEvent event) {
-        plugin.scheduleBlockRestore(event.getBlock());
+        plugin.scheduleRestore(event.getBlock());
     }
     
 }
