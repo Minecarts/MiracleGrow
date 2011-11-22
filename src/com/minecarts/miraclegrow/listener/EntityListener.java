@@ -18,7 +18,6 @@ public class EntityListener extends org.bukkit.event.entity.EntityListener {
         for(Block block : event.blockList()) {
             plugin.scheduleRestore(block, 30);
         }
-        plugin.processQueue();
     }
     
 }

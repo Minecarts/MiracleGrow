@@ -8,7 +8,6 @@ import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.PluginManager;
 
 import com.minecarts.dbquery.DBQuery;
-import com.minecarts.dbquery.DBQuery.AsyncQueryHelper;
 
 import com.minecarts.miraclegrow.listener.*;
 import org.bukkit.event.Listener;
@@ -30,21 +29,21 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     
     private PluginDescriptionFile pdf;
     
-    protected AsyncQueryHelper db;
+    protected DBQuery dbq;
     protected HashSet<BlockStateRestore> queue = new HashSet<BlockStateRestore>();
     
     public void onEnable() {
         pdf = getDescription();
         DBQuery dbq = (DBQuery) getServer().getPluginManager().getPlugin("DBQuery");
-        
-        // TODO: use config for pool name
-        db = dbq.getAsyncConnection("minecarts");
-        
+        logf("onEnable dbq: {0}", dbq);
         
         PluginManager pluginManager = getServer().getPluginManager();
         HashMap<Listener, Type[]> listeners = new HashMap<Listener, Type[]>() {{
             put(new BlockListener(MiracleGrow.this), new Type[]{ BLOCK_PLACE, BLOCK_BREAK });
             put(new EntityListener(MiracleGrow.this), new Type[]{ ENTITY_EXPLODE });
+            // TODO: find a better pre-onDisable fix than these non-working attempts below
+            put(new WorldListener(MiracleGrow.this), new Type[]{ WORLD_UNLOAD, WORLD_SAVE });
+            put(new ServerListener(MiracleGrow.this), new Type[]{ PLUGIN_DISABLE });
         }};
         
         for(java.util.Map.Entry<Listener, Type[]> entry : listeners.entrySet()) {
@@ -58,6 +57,9 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     }
     
     public void onDisable() {
+        log("onDisable called, processing queue...");
+        logf("onDisable dbq: {0}", dbq);
+        processQueue(false);
     }
     
     
@@ -113,23 +115,17 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         scheduleRestore(state, getBlockRestoreTime(state));
     }
     public void scheduleRestore(BlockState state, int seconds) {
-        logf("restoring block state {0} in {1} seconds", state.getType(), seconds);
-        
         BlockStateRestore restore = new BlockStateRestore(state, seconds);
-        logf("{0}", restore);
         
-        if(queue.contains(restore)) {
-            log("queue already contains restore, removing old value...");
-            queue.remove(restore);
-        }
-        
-        log("restore added to queue");
+        if(queue.contains(restore)) queue.remove(restore);
         queue.add(restore);
-        logf("queue size: {0}", queue.size());
     }
     
     
     public void processQueue() {
+        processQueue(true);
+    }
+    public void processQueue(final boolean asyncQuery) {
         if(queue.isEmpty()) return;
         
         StringBuilder query = new StringBuilder("INSERT INTO `block_restore_queue` (`world`, `x`, `y`, `z`, `type`, `data`, `when`) VALUES ");
@@ -149,42 +145,40 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         queue.clear();
         
         query.replace(query.length() - 2, query.length(), " ON DUPLICATE KEY UPDATE `when`=VALUES(`when`)");
-        log(query.toString());
-        params.add(new Callback() {
+        
+        new Query(query.toString()) {
+            protected boolean async = asyncQuery;
+            
             @Override
-            public void onComplete(Integer affected) {
+            public void onAffected(Integer affected) {
                 logf("{0} rows affected", affected);
             }
-        });
-        
-        try {
-            db.affected(query.toString(), params.toArray());
-        }
-        catch(Exception e) {
-            // shouldn't get here with async
-        }
+        }.affected(params.toArray());
     }
     
     
     
-    
-    class Callback extends com.minecarts.dbquery.Callback {
+    class Query extends com.minecarts.dbquery.Query {
+        public Query(String sql) {
+            // TODO: configurable provider name
+            super(MiracleGrow.this, ((DBQuery) getServer().getPluginManager().getPlugin("DBQuery")).getProvider("minecarts"), sql);
+        }
         
         @Override
-        public void onError(Exception x) {
+        public void onException(Exception x, FinalQuery query) {
             try {
                 throw x;
             }
             catch(java.sql.SQLException e) {
-                log("SQLException:");
+                log("Query SQLException:");
                 e.printStackTrace();
             }
             catch(com.minecarts.dbquery.NoConnectionException e) {
-                log("NoConnectionException:");
+                log("Query NoConnectionException:");
                 e.printStackTrace();
             }
             catch(Exception e) {
-                log("Exception:");
+                log("Query generic Exception:");
                 e.printStackTrace();
             }
         }
