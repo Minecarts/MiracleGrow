@@ -34,15 +34,12 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     
     public void onEnable() {
         pdf = getDescription();
-        DBQuery dbq = (DBQuery) getServer().getPluginManager().getPlugin("DBQuery");
-        logf("onEnable dbq: {0}", dbq);
+        dbq = (DBQuery) getServer().getPluginManager().getPlugin("DBQuery");
         
         PluginManager pluginManager = getServer().getPluginManager();
         HashMap<Listener, Type[]> listeners = new HashMap<Listener, Type[]>() {{
             put(new BlockListener(MiracleGrow.this), new Type[]{ BLOCK_PLACE, BLOCK_BREAK });
             put(new EntityListener(MiracleGrow.this), new Type[]{ ENTITY_EXPLODE });
-            // TODO: find a better pre-onDisable fix than these non-working attempts below
-            put(new WorldListener(MiracleGrow.this), new Type[]{ WORLD_UNLOAD, WORLD_SAVE });
             put(new ServerListener(MiracleGrow.this), new Type[]{ PLUGIN_DISABLE });
         }};
         
@@ -57,8 +54,6 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     }
     
     public void onDisable() {
-        log("onDisable called, processing queue...");
-        logf("onDisable dbq: {0}", dbq);
         processQueue(false);
     }
     

@@ -15,11 +15,9 @@ public class WorldListener extends org.bukkit.event.world.WorldListener {
     
     @Override
     public void onWorldUnload(WorldUnloadEvent event) {
-        plugin.log("world unloading:" + event.getWorld());
     }
     @Override
     public void onWorldSave(WorldSaveEvent event) {
-        plugin.log("world saving:" + event.getWorld());
     }
     
 }

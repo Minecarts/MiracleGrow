@@ -17,6 +17,7 @@ public class ServerListener extends org.bukkit.event.server.ServerListener {
     
     @Override
     public void onPluginDisable(PluginDisableEvent event) {
+        // disable self if a dependency is being disabled
         if(event.getPlugin() instanceof DBQuery || event.getPlugin() instanceof DBConnector) {
             plugin.getServer().getPluginManager().disablePlugin(plugin);
         }
