@@ -38,7 +38,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         
         PluginManager pluginManager = getServer().getPluginManager();
         HashMap<Listener, Type[]> listeners = new HashMap<Listener, Type[]>() {{
-            put(new BlockListener(MiracleGrow.this), new Type[]{ BLOCK_PLACE, BLOCK_BREAK, BLOCK_FADE, BLOCK_FORM, BLOCK_SPREAD, BLOCK_FROMTO, LEAVES_DECAY, BLOCK_BURN });
+            put(new BlockListener(MiracleGrow.this), new Type[]{ BLOCK_PLACE, BLOCK_BREAK, BLOCK_FADE, BLOCK_FORM, BLOCK_SPREAD, BLOCK_FROMTO, LEAVES_DECAY, BLOCK_BURN, BLOCK_PISTON_EXTEND, BLOCK_PISTON_RETRACT });
             put(new EntityListener(MiracleGrow.this), new Type[]{ ENTITY_EXPLODE });
             put(new ServerListener(MiracleGrow.this), new Type[]{ PLUGIN_DISABLE });
         }};
