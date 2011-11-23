@@ -15,6 +15,8 @@ public class EntityListener extends org.bukkit.event.entity.EntityListener {
     
     @Override
     public void onEntityExplode(EntityExplodeEvent event) {
+        if(event.isCancelled()) return;
+        
         for(Block block : event.blockList()) {
             plugin.scheduleRestore(block, 30);
         }
