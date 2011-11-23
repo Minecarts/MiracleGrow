@@ -49,6 +49,13 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
             }
         }
         
+        
+        getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
+            public void run() {
+                processQueue();
+            }
+        }, 20*30, 20*30); // TODO: configurable flush interval
+        
 
         logf("Enabled {0}", pdf.getVersion());
     }
@@ -74,7 +81,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     
     
     
-    class BlockStateRestore {
+    public class BlockStateRestore {
         public final BlockState state;
         public final int seconds;
         
@@ -120,14 +127,14 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     public void processQueue() {
         processQueue(true);
     }
-    public void processQueue(final boolean asyncQuery) {
+    public void processQueue(boolean async) {
         if(queue.isEmpty()) return;
         
-        StringBuilder query = new StringBuilder("INSERT INTO `block_restore_queue` (`world`, `x`, `y`, `z`, `type`, `data`, `when`) VALUES ");
+        StringBuilder sql = new StringBuilder("INSERT INTO `block_restore_queue` (`world`, `x`, `y`, `z`, `type`, `data`, `when`) VALUES ");
         ArrayList<Object> params = new ArrayList();
         
         for(BlockStateRestore restore : queue) {
-            query.append("(?, ?, ?, ?, ?, ?, TIMESTAMPADD(SECOND, ?, NOW())), ");
+            sql.append("(?, ?, ?, ?, ?, ?, TIMESTAMPADD(SECOND, ?, NOW())), ");
             params.add(restore.state.getBlock().getWorld().getName());
             params.add(restore.state.getBlock().getX());
             params.add(restore.state.getBlock().getY());
@@ -139,14 +146,48 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         // TODO: requeue in case of query failure
         queue.clear();
         
-        query.replace(query.length() - 2, query.length(), " ON DUPLICATE KEY UPDATE `when`=VALUES(`when`)");
+        sql.replace(sql.length() - 2, sql.length(), " ON DUPLICATE KEY UPDATE `when`=VALUES(`when`)");
         
-        new Query(query.toString()) {
-            protected boolean async = asyncQuery;
+        
+        new Query(sql.toString(), async) {
+            private int tries = 0;
             
             @Override
             public void onAffected(Integer affected) {
                 logf("{0} rows affected", affected);
+            }
+            
+            @Override
+            public void onException(Exception x, FinalQuery query) {
+                try {
+                    throw x;
+                }
+                catch(java.sql.SQLException e) {
+                    if(++tries < 5) {
+                        logf("SQLException on Query, retrying...");
+                        e.printStackTrace();
+                        query.run();
+                    }
+                    else {
+                        logf("FAILED! SQLException on Query: {0}", query);
+                        e.printStackTrace();
+                    }
+                }
+                catch(com.minecarts.dbquery.NoConnectionException e) {
+                    if(++tries < 5) {
+                        logf("NoConnectionException on Query, retrying...");
+                        e.printStackTrace();
+                        query.run();
+                    }
+                    else {
+                        logf("FAILED! NoConnectionException on Query: {0}", query);
+                        e.printStackTrace();
+                    }
+                }
+                catch(Exception e) {
+                    logf("FAILED! Exception on Query: {0}", query);
+                    e.printStackTrace();
+                }
             }
         }.affected(params.toArray());
     }
@@ -154,6 +195,10 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     
     
     class Query extends com.minecarts.dbquery.Query {
+        public Query(String sql, boolean async) {
+            this(sql);
+            this.async = async;
+        }
         public Query(String sql) {
             // TODO: configurable provider name
             super(MiracleGrow.this, ((DBQuery) getServer().getPluginManager().getPlugin("DBQuery")).getProvider("minecarts"), sql);
@@ -165,15 +210,15 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                 throw x;
             }
             catch(java.sql.SQLException e) {
-                log("Query SQLException:");
+                logf("SQLException on Query: {0}", query);
                 e.printStackTrace();
             }
             catch(com.minecarts.dbquery.NoConnectionException e) {
-                log("Query NoConnectionException:");
+                logf("NoConnectionException on Query: {0}", query);
                 e.printStackTrace();
             }
             catch(Exception e) {
-                log("Query generic Exception:");
+                logf("Exception on Query: {0}", query);
                 e.printStackTrace();
             }
         }
