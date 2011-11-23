@@ -66,6 +66,7 @@ public class BlockListener extends org.bukkit.event.block.BlockListener {
         if(event.isCancelled()) return;
         
         plugin.scheduleRestore(event.getBlock(), 30);
+        // TODO: igniting portals?
     }
     
     @Override
