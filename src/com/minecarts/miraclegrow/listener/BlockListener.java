@@ -62,6 +62,13 @@ public class BlockListener extends org.bukkit.event.block.BlockListener {
     }
     
     @Override
+    public void onBlockIgnite(BlockIgniteEvent event) {
+        if(event.isCancelled()) return;
+        
+        plugin.scheduleRestore(event.getBlock(), 30);
+    }
+    
+    @Override
     public void onBlockBurn(BlockBurnEvent event) {
         if(event.isCancelled()) return;
         
