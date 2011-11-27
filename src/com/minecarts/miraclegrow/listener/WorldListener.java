@@ -1,6 +1,7 @@
 package com.minecarts.miraclegrow.listener;
 
 import com.minecarts.miraclegrow.MiracleGrow;
+import com.minecarts.miraclegrow.BlockStateRestore.Cause;
 import org.bukkit.event.world.*;
 import org.bukkit.block.Block;
 
@@ -17,7 +18,7 @@ public class WorldListener extends org.bukkit.event.world.WorldListener {
         if(event.isCancelled()) return;
         
         for(Block block : event.getBlocks()) {
-            plugin.scheduleRestore(block, 30);
+            plugin.scheduleRestore(block, Cause.PLAYER);
         }
     }
 }

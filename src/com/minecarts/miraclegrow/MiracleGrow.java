@@ -9,6 +9,7 @@ import org.bukkit.plugin.PluginManager;
 
 import com.minecarts.dbquery.DBQuery;
 
+import com.minecarts.miraclegrow.BlockStateRestore.Cause;
 import com.minecarts.miraclegrow.listener.*;
 import org.bukkit.event.Listener;
 import org.bukkit.block.Block;
@@ -82,40 +83,20 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     
     
     
-    public class BlockStateRestore {
-        public final BlockState state;
-        public final int seconds;
-        
-        public BlockStateRestore(Block block, int seconds) {
-            this(block.getState(), seconds);
-        }
-        public BlockStateRestore(BlockState state, int seconds) {
-            this.state = state;
-            this.seconds = seconds;
-        }
-        
-        @Override
-        public boolean equals(Object o) {
-            if(o == this) return true;
-            if(!(o instanceof BlockStateRestore)) return false;
-            
-            return state.getBlock().equals(((BlockStateRestore) o).state.getBlock());
-        }
-        
-        @Override
-        public int hashCode() {
-            return state.getBlock().hashCode();
-        }
-    }
-    
     public void scheduleRestore(Block block) {
         scheduleRestore(block.getState());
+    }
+    public void scheduleRestore(Block block, Cause cause) {
+        scheduleRestore(block.getState(), cause);
     }
     public void scheduleRestore(Block block, int seconds) {
         scheduleRestore(block.getState(), seconds);
     }
     public void scheduleRestore(BlockState state) {
-        scheduleRestore(state, getBlockRestoreTime(state));
+        scheduleRestore(state, BlockStateRestore.getBlockRestoreTime(state));
+    }
+    public void scheduleRestore(BlockState state, Cause cause) {
+        scheduleRestore(state, BlockStateRestore.getBlockRestoreTime(state, cause));
     }
     public void scheduleRestore(BlockState state, int seconds) {
         BlockStateRestore restore = new BlockStateRestore(state, seconds);
@@ -125,10 +106,10 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     }
     
     
-    public void processQueue() {
+    private void processQueue() {
         processQueue(true);
     }
-    public void processQueue(boolean async) {
+    private void processQueue(boolean async) {
         if(queue.isEmpty()) return;
         
         StringBuilder sql = new StringBuilder("INSERT INTO `block_restore_queue` (`world`, `x`, `y`, `z`, `type`, `data`, `when`) VALUES ");
@@ -223,15 +204,6 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                 e.printStackTrace();
             }
         }
-    }
-    
-    
-    public int getBlockRestoreTime(Block block) {
-        return getBlockRestoreTime(block.getState());
-    }
-    public int getBlockRestoreTime(BlockState state) {
-        logf("Getting block restore time for {1} at {0}", state.getBlock().getLocation(), state.getType());
-        return 60*60*24;
     }
     
 }
