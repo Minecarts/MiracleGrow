@@ -42,7 +42,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
             put(new ServerListener(MiracleGrow.this), new Type[]{ PLUGIN_DISABLE });
             put(new WorldListener(MiracleGrow.this), new Type[]{ PORTAL_CREATE });
             put(new BlockListener(MiracleGrow.this), new Type[]{ BLOCK_PLACE, BLOCK_BREAK, BLOCK_FADE, BLOCK_FORM, BLOCK_SPREAD, BLOCK_FROMTO, LEAVES_DECAY, BLOCK_IGNITE, BLOCK_BURN, BLOCK_PISTON_EXTEND, BLOCK_PISTON_RETRACT });
-            put(new EntityListener(MiracleGrow.this), new Type[]{ ENTITY_EXPLODE });
+            put(new EntityListener(MiracleGrow.this), new Type[]{ ENTITY_EXPLODE, ENDERMAN_PICKUP, ENDERMAN_PLACE });
         }};
         
         for(java.util.Map.Entry<Listener, Type[]> entry : listeners.entrySet()) {
