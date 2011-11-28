@@ -2,6 +2,7 @@ package com.minecarts.miraclegrow;
 
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
+import static org.bukkit.Material.*;
 
 public class BlockStateRestore {
     public final BlockState state;
@@ -46,6 +47,52 @@ public class BlockStateRestore {
         return getBlockRestoreTime(state, Cause.PLAYER);
     }
     public static int getBlockRestoreTime(BlockState state, Cause cause) {
-        return cause.seconds;
+        int seconds = cause.seconds;
+        
+        switch(state.getType()) {
+            
+            case MOB_SPAWNER:
+                seconds *= 4;
+                seconds += 60 * 60 * 24;
+                
+            case DIAMOND_ORE:
+            case LAPIS_ORE:
+            case GOLD_ORE:
+            case IRON_ORE:
+            case REDSTONE_ORE:
+            case GLOWSTONE:
+                seconds *= 3;
+                seconds += 60 * 60 * 24;
+                
+            case COAL_ORE:
+            case CLAY:
+            case MOSSY_COBBLESTONE:
+            case SUGAR_CANE:
+            case RED_MUSHROOM:
+            case BROWN_MUSHROOM:
+            case RED_ROSE:
+            case YELLOW_FLOWER:
+            case PUMPKIN:
+            case JACK_O_LANTERN:
+            case MELON:
+            case WATER_LILY:
+            case NETHER_BRICK:
+            case NETHER_FENCE:
+            case NETHER_BRICK_STAIRS:
+            case NETHER_WARTS:
+                seconds *= 2;
+                seconds += 60 * 60 * 24;
+                
+            case SMOOTH_BRICK:
+                // mossy and cracked smooth brick
+                if(state.getData().getData() > 0) {
+                    seconds *= 2;
+                    seconds += 60 * 60 * 24;
+                }
+            
+            
+        }
+        
+        return seconds;
     }
 }
