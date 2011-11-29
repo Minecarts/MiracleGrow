@@ -90,7 +90,6 @@ public class BlockStateRestore {
                     seconds += 60 * 60 * 24;
                 }
             
-            
         }
         
         return seconds;
