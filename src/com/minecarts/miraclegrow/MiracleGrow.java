@@ -60,6 +60,20 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
             }
         }
         
+        // TODO: check and create tables from config IF NOT EXIST
+        
+        /*
+            CREATE TABLE IF NOT EXISTS `MiracleGrow_table_name` (
+              `x` smallint(6) NOT NULL DEFAULT '0',
+              `y` tinyint(4) NOT NULL DEFAULT '0',
+              `z` smallint(6) NOT NULL DEFAULT '0',
+              `type` smallint(6) DEFAULT NULL,
+              `data` tinyint(4) DEFAULT NULL,
+              `when` timestamp DEFAULT NULL,
+              PRIMARY KEY (`x`,`y`,`z`)
+            ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+         */
+        
         
         int interval = Math.max(20, 20 * config.getInt("flushInterval"));
         debug("Flushing block restore queue at a {0} tick interval", interval);
