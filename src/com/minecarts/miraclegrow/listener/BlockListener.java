@@ -59,7 +59,7 @@ public class BlockListener extends org.bukkit.event.block.BlockListener {
     public void onLeavesDecay(LeavesDecayEvent event) {
         if(event.isCancelled()) return;
         
-        plugin.scheduleRestore(event.getBlock(), Cause.WORLD);
+        plugin.scheduleRestore(event.getBlock(), Cause.PLAYER);
     }
     
     @Override
