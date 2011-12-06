@@ -105,12 +105,6 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         
         getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
             public void run() {
-                if(!restoring.isEmpty() || !flushing.isEmpty()) {
-                    debug("Flush or restore in progress, rescheduling restore task for 5 seconds from now");
-                    getServer().getScheduler().scheduleSyncDelayedTask(MiracleGrow.this, this, 20 * 5);
-                    return;
-                }
-                
                 debug("Restoring blocks");
                 restoreBlocks();
                 
@@ -212,18 +206,13 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         for(Entry<World, HashSet<BlockStateRestore>> entry : queue.entrySet()) {
             
             final World world = entry.getKey();
-            final String table = worlds.getString(world.getName(), null);
-            HashSet<BlockStateRestore> set = entry.getValue();
-            
-            if(restoring.contains(world)) {
-                debug("Restore in progress for world {0}...", world.getName());
-                continue;
-            }
-            
             if(flushing.contains(world)) {
                 debug("Flush already in progress for world {0}...", world.getName());
                 continue;
             }
+            
+            final String table = worlds.getString(world.getName(), null);
+            HashSet<BlockStateRestore> set = entry.getValue();
             
             if(table == null) {
                 debug("No table name found for worlds.{0}, clearing world's block queue", world.getName());
@@ -254,7 +243,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
             }
             set.clear();
 
-            sql.replace(sql.length() - 2, sql.length(), " ON DUPLICATE KEY UPDATE `when`=VALUES(`when`)");
+            sql.replace(sql.length() - 2, sql.length(), " ON DUPLICATE KEY UPDATE `when`=VALUES(`when`), `job`=DEFAULT");
 
 
             new Query(sql.toString(), async) {
@@ -308,17 +297,17 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     
     
     private void restoreBlocks() {
-        if(!restoring.isEmpty() || !flushing.isEmpty()) {
-            debug("Flush or restore in progress...");
-            return;
-        }
-        
         if(worlds == null) {
             debug("No table names found in worlds section of configuration file");
             return;
         }
         
         for(final World world : getServer().getWorlds()) {
+            
+            if(restoring.contains(world)) {
+                debug("Restore already in progress for world {0}...", world.getName());
+                continue;
+            }
             
             final String table = worlds.getString(world.getName(), null);
             if(table == null) {
@@ -330,32 +319,32 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
             restoring.add(world);
             
             
-            final int restoreId = (int) (System.currentTimeMillis() / 1000L);
-            StringBuilder sql = new StringBuilder("UPDATE `").append(table).append("` SET `restore_id`=? WHERE `when` <= NOW() ORDER BY `restore_id`, `when` LIMIT 1000");
+            final int job = (int) (System.currentTimeMillis() / 1000L);
+            StringBuilder sql = new StringBuilder("UPDATE `").append(table).append("` SET `job`=? WHERE `when` <= NOW() ORDER BY `job`, `when` LIMIT 1000");
             
             new Query(sql.toString()) {
                 @Override
                 public void onAffected(Integer affected) {
                     if(affected > 0) {
-                        debug("Updated {0} rows for restore job #{1,number,#}", affected, restoreId);
+                        debug("Updated {0} rows for restore job #{1,number,#}", affected, job);
                     }
                     else {
-                        debug("No rows updated for restore job #{0,number,#}", restoreId);
+                        debug("No rows updated for restore job #{0,number,#}", job);
                         restoring.remove(world);
                         return;
                     }
                     
-                    StringBuilder sql = new StringBuilder("SELECT `x`, `y`, `z`, `type`, `data` FROM `").append(table).append("` WHERE `restore_id`=? ORDER BY `y`, `x`, `z`");
+                    StringBuilder sql = new StringBuilder("SELECT `x`, `y`, `z`, `type`, `data` FROM `").append(table).append("` WHERE `job`=? ORDER BY `y`, `x`, `z`");
                     new Query(sql.toString()) {
                         private int tries = 0;
 
                         @Override
                         public void onFetch(ArrayList<HashMap> rows) {
                             if(rows.size() > 0) {
-                                debug("Got {0} rows for restore job #{1,number,#}", rows.size(), restoreId);
+                                debug("Got {0} rows for restore job #{1,number,#}", rows.size(), job);
                             }
                             else {
-                                debug("No rows found for restore job #{0,number,#}", restoreId);
+                                debug("No rows found for restore job #{0,number,#}", job);
                                 restoring.remove(world);
                                 return;
                             }
@@ -371,7 +360,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 
                                 for(Entity entity : world.getChunkAt(x, z).getEntities()) {
                                     if(entity instanceof Player) {
-                                        debug("Player entity found in chunk [{0} {1}], skipping restore job #{2,number,#}", x, z, restoreId);
+                                        debug("Player entity found in chunk [{0} {1}], skipping restore job #{2,number,#}", x, z, job);
                                         restoring.remove(world);
                                         return;
                                     }
@@ -411,12 +400,12 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                             
                             
                             
-                            StringBuilder sql = new StringBuilder("DELETE FROM `").append(table).append("` WHERE `restore_id`=?");
+                            StringBuilder sql = new StringBuilder("DELETE FROM `").append(table).append("` WHERE `job`=?");
                             
                             new Query(sql.toString()) {
                                 @Override
                                 public void onAffected(Integer affected) {
-                                    debug("Deleted {0} rows from table {1} for block restore job #{2,number,#}", affected, table, restoreId);
+                                    debug("Deleted {0} rows from table {1} for block restore job #{2,number,#}", affected, table, job);
                                     restoring.remove(world);
                                 }
                                 @Override
@@ -424,7 +413,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                     e.printStackTrace();
                                     restoring.remove(world);
                                 }
-                            }.affected(restoreId);
+                            }.affected(job);
                         }
 
                         @Override
@@ -462,7 +451,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 restoring.remove(world);
                             }
                         }
-                    }.fetch(restoreId);
+                    }.fetch(job);
                 }
                 
                 @Override
@@ -470,7 +459,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                     e.printStackTrace();
                     restoring.remove(world);
                 }
-            }.affected(restoreId);
+            }.affected(job);
             
         }
             
