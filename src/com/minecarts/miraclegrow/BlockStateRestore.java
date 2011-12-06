@@ -92,6 +92,9 @@ public class BlockStateRestore {
             
         }
         
+        // +-5% variability
+        seconds = (int)(seconds * (Math.random() * 0.1 + 0.95));
+        
         return seconds;
     }
 }
