@@ -47,7 +47,7 @@ public class BlockStateRestore {
         return getBlockRestoreTime(state, Cause.PLAYER);
     }
     public static int getBlockRestoreTime(BlockState state, Cause cause) {
-        int seconds = cause.seconds;
+        float seconds = cause.seconds;
         
         switch(state.getType()) {
             
@@ -92,9 +92,12 @@ public class BlockStateRestore {
             
         }
         
-        // +-5% variability
-        seconds = (int)(seconds * (Math.random() * 0.1 + 0.95));
+        // +5% to -15% based on block depth
+        seconds *= (state.getY() / 128) * -0.2 + 0.05;
         
-        return seconds;
+        // +-5% random variability
+        seconds *= Math.random() * 0.1 + 0.95;
+        
+        return (int) seconds;
     }
 }
