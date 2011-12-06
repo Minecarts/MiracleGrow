@@ -70,8 +70,9 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
               `type` smallint(6) DEFAULT NULL,
               `data` tinyint(4) DEFAULT NULL,
               `when` timestamp DEFAULT NULL,
-              PRIMARY KEY (`x`,`y`,`z`)
-            ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+              PRIMARY KEY (`x`,`y`,`z`),
+              KEY `when` (`when`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
          */
         
         
