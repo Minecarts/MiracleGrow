@@ -1,3 +1,12 @@
 debug: false
-flushInterval: 30
-restoreInterval: 300 #5 minutes
+
+flush:
+  interval: 30
+restore:
+  interval: 300 #5 minutes
+  jobSize: 1000
+
+tables:
+  blocks: MiracleGrow_%s_blocks
+  jobs: MiracleGrow_%s_jobs
+

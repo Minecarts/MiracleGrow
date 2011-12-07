@@ -35,13 +35,14 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     
     protected boolean debug;
     protected FileConfiguration config;
-    protected ConfigurationSection worlds;
+    protected HashMap<World, ConfigurationSection> worlds = new HashMap<World, ConfigurationSection>();
     
     protected DBQuery dbq;
     protected Provider provider;
     
     protected int flushInterval;
     protected int restoreInterval;
+    protected int restoreJobSize;
     
     protected HashMap<World, HashSet<BlockStateRestore>> queue = new HashMap<World, HashSet<BlockStateRestore>>();
     protected ArrayList<World> flushing = new ArrayList<World>();
@@ -130,14 +131,27 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         if(config == null) config = getConfig();
         
         debug = config.getBoolean("debug");
-        worlds = config.getConfigurationSection("worlds");
         provider = dbq.getProvider(config.getString("DBQuery.provider"));
         
-        flushInterval = Math.max(20, 20 * config.getInt("flushInterval"));
-        debug("Flushing block restore queue to database at a {0} tick interval", flushInterval);
+        flushInterval = Math.max(20, 20 * config.getInt("flush.interval"));
+        debug("Flushing block restore queue to database every {0} ticks", flushInterval);
         
-        restoreInterval = Math.max(20, 20 * config.getInt("restoreInterval"));
-        debug("Restoring blocks from database at a {0} tick interval", restoreInterval);
+        restoreInterval = Math.max(20, 20 * config.getInt("restore.interval"));
+        restoreJobSize = Math.max(1, config.getInt("restore.jobSize"));
+        debug("Restoring {1} blocks from database every {0} ticks", restoreInterval, restoreJobSize);
+        
+        
+        ConfigurationSection worldsConfig = config.getConfigurationSection("worlds");
+        worlds.clear();
+        
+        if(worlds != null) {
+            for(World world : getServer().getWorlds()) {
+                ConfigurationSection worldConfig = worldsConfig.getConfigurationSection(world.getName());
+                if(worldConfig == null) continue;
+                
+                worlds.put(world, worldConfig);
+            }
+        }
     }
     
     
@@ -162,6 +176,19 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     }
     
     
+    
+    public String getTableName(World world, String id) {
+        ConfigurationSection worldConfig = worlds.get(world);
+        if(worldConfig == null) return null;
+        
+        String table = worldConfig.getString("tables." + id, null);
+        if(table != null) return table;
+        
+        table = worldConfig.getString("table", null);
+        if(table == null) return null;
+        
+        return String.format(config.getString("tables." + id), table);
+    }
     
     
     
@@ -211,11 +238,12 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                 continue;
             }
             
-            final String table = worlds.getString(world.getName(), null);
+            final String blocksTable = getTableName(world, "blocks");
+            final String jobsTable = getTableName(world, "jobs");
             HashSet<BlockStateRestore> set = entry.getValue();
             
-            if(table == null) {
-                debug("No table name found for worlds.{0}, clearing world's block queue", world.getName());
+            if(blocksTable == null || jobsTable == null) {
+                debug("Missing tables for world {0}, clearing world's block queue", world.getName());
                 set.clear();
                 continue;
             }
@@ -229,68 +257,45 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
             flushing.add(world);
             
             
-            StringBuilder sql = new StringBuilder("INSERT INTO `").append(table).append("` (`x`, `y`, `z`, `type`, `data`, `when`) VALUES ");
-            ArrayList<Object> params = new ArrayList();
+            final StringBuilder blocksSql = new StringBuilder("INSERT IGNORE INTO `").append(blocksTable).append("` (`x`, `y`, `z`, `type`, `data`) VALUES ");
+            final ArrayList<Object> blocksParams = new ArrayList();
+            
+            final StringBuilder jobsSql = new StringBuilder("INSERT INTO `").append(jobsTable).append("` (`x`, `y`, `z`, `when`) VALUES ");
+            final ArrayList<Object> jobsParams = new ArrayList();
 
             for(BlockStateRestore restore : set) {
-                sql.append("(?, ?, ?, ?, ?, TIMESTAMPADD(SECOND, ?, NOW())), ");
-                params.add(restore.state.getBlock().getX());
-                params.add(restore.state.getBlock().getY());
-                params.add(restore.state.getBlock().getZ());
-                params.add(restore.state.getTypeId());
-                params.add(restore.state.getData().getData());
-                params.add(restore.seconds);
+                int x = restore.state.getX();
+                int y = restore.state.getY();
+                int z = restore.state.getZ();
+                int type = restore.state.getTypeId();
+                byte data = restore.state.getData().getData();
+                
+                blocksSql.append("(?, ?, ?, ?, ?), ");
+                blocksParams.add(x);
+                blocksParams.add(y);
+                blocksParams.add(z);
+                blocksParams.add(type);
+                blocksParams.add(data);
+                
+                jobsSql.append("(?, ?, ?, TIMESTAMPADD(SECOND, ?, NOW())), ");
+                jobsParams.add(x);
+                jobsParams.add(y);
+                jobsParams.add(z);
+                jobsParams.add(restore.seconds);
             }
             set.clear();
-
-            sql.replace(sql.length() - 2, sql.length(), " ON DUPLICATE KEY UPDATE `when`=VALUES(`when`), `job`=DEFAULT");
-
-
-            new Query(sql.toString(), async) {
-                private int tries = 0;
-
+            
+            blocksSql.delete(blocksSql.length() - 2, blocksSql.length());
+            jobsSql.replace(jobsSql.length() - 2, jobsSql.length(), " ON DUPLICATE KEY UPDATE `when`=VALUES(`when`), `job`=DEFAULT");
+            
+            
+            new FlushQuery(world, blocksSql.toString(), async) {
                 @Override
                 public void onAffected(Integer affected) {
-                    debug("{0} rows affected", affected);
-                    flushing.remove(world);
+                    super.onAffected(affected);
+                    new FlushQuery(world, jobsSql.toString(), async).affected(jobsParams.toArray());
                 }
-
-                @Override
-                public void onException(Exception x, FinalQuery query) {
-                    try {
-                        throw x;
-                    }
-                    catch(java.sql.SQLException e) {
-                        if(++tries < 5) {
-                            log("SQLException on Query, retrying...");
-                            e.printStackTrace();
-                            query.run();
-                        }
-                        else {
-                            log("FAILED! SQLException on Query: {0}", query);
-                            e.printStackTrace();
-                            flushing.remove(world);
-                        }
-                    }
-                    catch(com.minecarts.dbquery.NoConnectionException e) {
-                        if(++tries < 5) {
-                            log("NoConnectionException on Query, retrying...");
-                            e.printStackTrace();
-                            query.run();
-                        }
-                        else {
-                            log("FAILED! NoConnectionException on Query: {0}", query);
-                            e.printStackTrace();
-                            flushing.remove(world);
-                        }
-                    }
-                    catch(Exception e) {
-                        log("FAILED! Exception on Query: {0}", query);
-                        e.printStackTrace();
-                        flushing.remove(world);
-                    }
-                }
-            }.affected(params.toArray());
+            }.affected(blocksParams.toArray());
             
         }
     }
@@ -302,16 +307,18 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
             return;
         }
         
-        for(final World world : getServer().getWorlds()) {
+        for(final World world : worlds.keySet()) {
             
             if(restoring.contains(world)) {
                 debug("Restore already in progress for world {0}...", world.getName());
                 continue;
             }
             
-            final String table = worlds.getString(world.getName(), null);
-            if(table == null) {
-                debug("No table name found for worlds.{0}, clearing world's block queue", world.getName());
+            final String blocksTable = getTableName(world, "blocks");
+            final String jobsTable = getTableName(world, "jobs");
+            
+            if(blocksTable == null || jobsTable == null) {
+                debug("Missing tables for world {0}, skipping restore", world.getName());
                 continue;
             }
             
@@ -320,9 +327,9 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
             
             
             final int job = (int) (System.currentTimeMillis() / 1000L);
-            StringBuilder sql = new StringBuilder("UPDATE `").append(table).append("` SET `job`=? WHERE `when` <= NOW() ORDER BY `job`, `when` LIMIT 1000");
+            StringBuilder sql = new StringBuilder("UPDATE `").append(jobsTable).append("` SET `job`=? WHERE `when` <= NOW() ORDER BY `job`, `when` LIMIT ?");
             
-            new Query(sql.toString()) {
+            new RestoreQuery(world, sql.toString()) {
                 @Override
                 public void onAffected(Integer affected) {
                     if(affected > 0) {
@@ -334,10 +341,12 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                         return;
                     }
                     
-                    StringBuilder sql = new StringBuilder("SELECT `x`, `y`, `z`, `type`, `data` FROM `").append(table).append("` WHERE `job`=? ORDER BY `y`, `x`, `z`");
-                    new Query(sql.toString()) {
-                        private int tries = 0;
-
+                    StringBuilder sql = new StringBuilder("SELECT `jobs`.`x`, `jobs`.`y`, `jobs`.`z`, `blocks`.`type`, `blocks`.`data` FROM `").append(jobsTable).append("` AS `jobs` ")
+                                                  .append("JOIN `").append(blocksTable).append("` AS `blocks` ON `blocks`.`x` = `jobs`.`x` AND `blocks`.`y` = `jobs`.`y` AND `blocks`.`z` = `jobs`.`z` ")
+                                                  .append("WHERE `jobs`.`job`=? ")
+                                                  .append("ORDER BY `jobs`.`y`, `jobs`.`x`, `jobs`.`z`");
+                    
+                    new RestoreQuery(world, sql.toString()) {
                         @Override
                         public void onFetch(ArrayList<HashMap> rows) {
                             if(rows.size() > 0) {
@@ -388,7 +397,6 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                     successes++;
                                 }
                                 else {
-                                    // TODO: retry or re-add to block restore queue?
                                     debug("Failed to restore block at [{0} {1} {2}] to {3}:{4}", x, y, z, type, data);
                                     failures++;
                                 }
@@ -400,66 +408,21 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                             
                             
                             
-                            StringBuilder sql = new StringBuilder("DELETE FROM `").append(table).append("` WHERE `job`=?");
+                            StringBuilder sql = new StringBuilder("DELETE FROM `").append(jobsTable).append("` WHERE `job`=?");
                             
-                            new Query(sql.toString()) {
+                            new RestoreQuery(world, sql.toString()) {
                                 @Override
                                 public void onAffected(Integer affected) {
-                                    debug("Deleted {0} rows from table {1} for block restore job #{2,number,#}", affected, table, job);
-                                    restoring.remove(world);
-                                }
-                                @Override
-                                public void onException(Exception e, FinalQuery query) {
-                                    e.printStackTrace();
+                                    debug("Deleted {0} rows from table {1} for block restore job #{2,number,#}", affected, jobsTable, job);
                                     restoring.remove(world);
                                 }
                             }.affected(job);
                         }
 
-                        @Override
-                        public void onException(Exception x, FinalQuery query) {
-                            try {
-                                throw x;
-                            }
-                            catch(java.sql.SQLException e) {
-                                if(++tries < 5) {
-                                    log("SQLException on Query, retrying...");
-                                    e.printStackTrace();
-                                    query.run();
-                                }
-                                else {
-                                    log("FAILED! SQLException on Query: {0}", query);
-                                    e.printStackTrace();
-                                    restoring.remove(world);
-                                }
-                            }
-                            catch(com.minecarts.dbquery.NoConnectionException e) {
-                                if(++tries < 5) {
-                                    log("NoConnectionException on Query, retrying...");
-                                    e.printStackTrace();
-                                    query.run();
-                                }
-                                else {
-                                    log("FAILED! NoConnectionException on Query: {0}", query);
-                                    e.printStackTrace();
-                                    restoring.remove(world);
-                                }
-                            }
-                            catch(Exception e) {
-                                log("FAILED! Exception on Query: {0}", query);
-                                e.printStackTrace();
-                                restoring.remove(world);
-                            }
-                        }
                     }.fetch(job);
                 }
                 
-                @Override
-                public void onException(Exception e, FinalQuery query) {
-                    e.printStackTrace();
-                    restoring.remove(world);
-                }
-            }.affected(job);
+            }.affected(job, restoreJobSize);
             
         }
             
@@ -479,23 +442,89 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         }
         
         @Override
+        public void onComplete(FinalQuery query) {
+            if(query.elapsed() < 500) {
+                debug("Query took {0,number,#} ms", query.elapsed());
+            }
+            else {
+                log("Slow query took {0,number,#} ms", query.elapsed());
+            }
+        }
+    }
+    
+    
+    class ProcessingQuery extends Query {
+        public final ArrayList processing;
+        public final World world;
+        
+        private int tries = 0;
+        
+        public ProcessingQuery(ArrayList processing, World world, String sql, boolean async) {
+            this(processing, world, sql);
+            this.async = async;
+        }
+        public ProcessingQuery(ArrayList processing, World world, String sql) {
+            super(sql);
+            this.processing = processing;
+            this.world = world;
+        }
+        
+        @Override
         public void onException(Exception x, FinalQuery query) {
             try {
                 throw x;
             }
             catch(java.sql.SQLException e) {
-                log("SQLException on Query: {0}", query);
-                e.printStackTrace();
+                if(++tries < 5) {
+                    log("SQLException on Query, retrying...");
+                    e.printStackTrace();
+                    query.run();
+                }
+                else {
+                    log("FAILED! SQLException on Query: {0}", query);
+                    e.printStackTrace();
+                    processing.remove(world);
+                }
             }
             catch(com.minecarts.dbquery.NoConnectionException e) {
-                log("NoConnectionException on Query: {0}", query);
-                e.printStackTrace();
+                if(++tries < 5) {
+                    log("NoConnectionException on Query, retrying...");
+                    e.printStackTrace();
+                    query.run();
+                }
+                else {
+                    log("FAILED! NoConnectionException on Query: {0}", query);
+                    e.printStackTrace();
+                    processing.remove(world);
+                }
             }
             catch(Exception e) {
-                log("Exception on Query: {0}", query);
+                log("FAILED! Exception on Query: {0}", query);
                 e.printStackTrace();
+                processing.remove(world);
             }
         }
+
     }
+    
+    
+    class FlushQuery extends ProcessingQuery {
+        public FlushQuery(World world, String sql, boolean async) {
+            super(flushing, world, sql, async);
+        }
+        
+        @Override
+        public void onAffected(Integer affected) {
+            debug("{0} rows affected", affected);
+            flushing.remove(world);
+        }
+    }
+    
+    class RestoreQuery extends ProcessingQuery {
+        public RestoreQuery(World world, String sql) {
+            super(restoring, world, sql);
+        }
+    }
+    
     
 }
