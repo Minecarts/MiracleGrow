@@ -9,7 +9,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.ConfigurationSection;
 
 import com.minecarts.dbquery.DBQuery;
-import com.minecarts.dbconnector.providers.Provider;
+import com.minecarts.dbconnector.pool.Pool;
 
 import com.minecarts.miraclegrow.BlockStateRestore.Cause;
 import com.minecarts.miraclegrow.listener.*;
@@ -38,7 +38,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     protected HashMap<World, ConfigurationSection> worlds = new HashMap<World, ConfigurationSection>();
     
     protected DBQuery dbq;
-    protected Provider provider;
+    protected Pool pool;
     
     protected int flushInterval;
     protected int restoreInterval;
@@ -95,10 +95,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         
         getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
             public void run() {
-                debug("Flushing block restore queue");
                 flushQueue();
-                
-                // reschedule task with potentially changed flush interval
                 getServer().getScheduler().scheduleSyncDelayedTask(MiracleGrow.this, this, flushInterval);
             }
         }, flushInterval);
@@ -106,10 +103,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         
         getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
             public void run() {
-                debug("Restoring blocks");
                 restoreBlocks();
-                
-                // reschedule task with potentially changed restore interval
                 getServer().getScheduler().scheduleSyncDelayedTask(MiracleGrow.this, this, restoreInterval);
             }
         }, restoreInterval);
@@ -131,7 +125,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         if(config == null) config = getConfig();
         
         debug = config.getBoolean("debug");
-        provider = dbq.getProvider(config.getString("DBQuery.provider"));
+        pool = dbq.getPool(config.getString("DBConnector.pool"));
         
         flushInterval = Math.max(20, 20 * config.getInt("flush.interval"));
         debug("Flushing block restore queue to database every {0} ticks", flushInterval);
@@ -437,8 +431,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
             this.async = async;
         }
         public Query(String sql) {
-            // TODO: configurable provider name
-            super(MiracleGrow.this, MiracleGrow.this.provider, sql);
+            super(MiracleGrow.this, MiracleGrow.this.pool, sql);
         }
         
         @Override
