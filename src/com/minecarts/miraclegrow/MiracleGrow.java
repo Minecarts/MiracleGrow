@@ -9,7 +9,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.ConfigurationSection;
 
 import com.minecarts.dbquery.DBQuery;
-import com.minecarts.dbconnector.pool.Pool;
+import com.minecarts.dbconnector.provider.Provider;
 
 import com.minecarts.miraclegrow.BlockStateRestore.Cause;
 import com.minecarts.miraclegrow.listener.*;
@@ -38,7 +38,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     protected HashMap<World, ConfigurationSection> worlds = new HashMap<World, ConfigurationSection>();
     
     protected DBQuery dbq;
-    protected Pool pool;
+    protected Provider provider;
     
     protected int flushInterval;
     protected int restoreInterval;
@@ -125,7 +125,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         if(config == null) config = getConfig();
         
         debug = config.getBoolean("debug");
-        pool = dbq.getPool(config.getString("DBConnector.pool"));
+        provider = dbq.getProvider(config.getString("DBConnector.provider"));
         
         flushInterval = Math.max(20, 20 * config.getInt("flush.interval"));
         debug("Flushing block restore queue to database every {0} ticks", flushInterval);
@@ -431,7 +431,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
             this.async = async;
         }
         public Query(String sql) {
-            super(MiracleGrow.this, MiracleGrow.this.pool, sql);
+            super(MiracleGrow.this, MiracleGrow.this.provider, sql);
         }
         
         @Override
