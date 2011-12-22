@@ -40,7 +40,9 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     protected DBQuery dbq;
     protected Provider provider;
     
+    protected boolean flush;
     protected int flushInterval;
+    protected boolean restore;
     protected int restoreInterval;
     protected int restoreJobSize;
     
@@ -95,7 +97,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         
         getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
             public void run() {
-                flushQueue();
+                if(flush) flushQueue();
                 getServer().getScheduler().scheduleSyncDelayedTask(MiracleGrow.this, this, flushInterval);
             }
         }, flushInterval);
@@ -103,7 +105,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         
         getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
             public void run() {
-                restoreBlocks();
+                if(restore) restoreBlocks();
                 getServer().getScheduler().scheduleSyncDelayedTask(MiracleGrow.this, this, restoreInterval);
             }
         }, restoreInterval);
@@ -127,9 +129,11 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         debug = config.getBoolean("debug");
         provider = dbq.getProvider(config.getString("DBConnector.provider"));
         
+        flush = !config.getBoolean("flush.disable");
         flushInterval = Math.max(20, 20 * config.getInt("flush.interval"));
         debug("Flushing block restore queue to database every {0} ticks", flushInterval);
         
+        restore = !config.getBoolean("restore.disable");
         restoreInterval = Math.max(20, 20 * config.getInt("restore.interval"));
         restoreJobSize = Math.max(1, config.getInt("restore.jobSize"));
         debug("Restoring {1} blocks from database every {0} ticks", restoreInterval, restoreJobSize);

@@ -1,8 +1,10 @@
 debug: false
 
 flush:
+  disable: false
   interval: 30
 restore:
+  disable: false
   interval: 300 #5 minutes
   jobSize: 1000
 
