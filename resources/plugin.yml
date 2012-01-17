@@ -6,3 +6,15 @@ website: http://minecarts.com/
 main: com.minecarts.miraclegrow.MiracleGrow
 version: ${pom.version}
 depend: [DBQuery]
+
+commands:
+  miraclegrow:
+    aliases: [mg, mgrow]
+    description: MiracleGrow internal commands
+    usage: /<command> reload
+    
+permissions:
+  miraclegrow:
+    reload:
+      description: Reload MiracleGrow config.yml
+      default: op

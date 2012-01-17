@@ -8,6 +8,10 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.ConfigurationSection;
 
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.Command;
+
 import com.minecarts.dbquery.DBQuery;
 import com.minecarts.dbconnector.provider.Provider;
 
@@ -54,6 +58,22 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     public void onEnable() {
         dbq = (DBQuery) getServer().getPluginManager().getPlugin("DBQuery");
         reloadConfig();
+        
+        // internal plugin commands
+        getCommand("miraclegrow").setExecutor(new CommandExecutor() {
+            public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+                if(!sender.hasPermission("miraclegrow.reload")) return true; // "hide" command output for nonpermissibles
+                
+                if(args[0].equalsIgnoreCase("reload")) {
+                    MiracleGrow.this.reloadConfig();
+                    sender.sendMessage("MiracleGrow config reloaded.");
+                    return true;
+                }
+                
+                return false;
+            }
+        });
+        
         
         PluginManager pluginManager = getServer().getPluginManager();
         HashMap<Listener, Type[]> listeners = new HashMap<Listener, Type[]>() {{
