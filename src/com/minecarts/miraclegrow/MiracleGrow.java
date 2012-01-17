@@ -90,7 +90,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
               PRIMARY KEY (`x`,`y`,`z`),
               INDEX `when` (`when`),
               INDEX `job` (`job`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+            ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
          */
         
         
@@ -389,6 +389,13 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 if(type == block.getTypeId() && data == block.getData()) {
                                     // block is correct, no restore necessary
                                     continue;
+                                }
+                                
+                                BlockRestoreEvent event = new BlockRestoreEvent(block, type, data);
+                                getServer().getPluginManager().callEvent(event);
+                                if(event.isCancelled()) {
+                                    debug("Restore cancelled for block at [{0} {1} {2}] to {3}:{4}", x, y, z, type, data);
+                                    return;
                                 }
                                 
                                 if(block.setTypeIdAndData(type, data, false)) {
