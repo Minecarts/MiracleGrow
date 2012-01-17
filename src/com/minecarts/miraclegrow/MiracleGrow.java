@@ -376,6 +376,8 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                             
                             
                             int successes = 0;
+                            int skipped = 0;
+                            int cancelled = 0;
                             int failures = 0;
                             
                             for(HashMap<String, Integer> row : rows) {
@@ -388,6 +390,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 Block block = world.getBlockAt(x, y, z);
                                 if(type == block.getTypeId() && data == block.getData()) {
                                     // block is correct, no restore necessary
+                                    skipped++;
                                     continue;
                                 }
                                 
@@ -395,21 +398,23 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 getServer().getPluginManager().callEvent(event);
                                 if(event.isCancelled()) {
                                     debug("Restore cancelled for block at [{0} {1} {2}] to {3}:{4}", x, y, z, type, data);
-                                    return;
+                                    cancelled++;
+                                    continue;
                                 }
                                 
                                 if(block.setTypeIdAndData(type, data, false)) {
                                     successes++;
+                                    continue;
                                 }
-                                else {
-                                    debug("Failed to restore block at [{0} {1} {2}] to {3}:{4}", x, y, z, type, data);
-                                    failures++;
-                                }
+                                
+                                debug("Failed to restore block at [{0} {1} {2}] to {3}:{4}", x, y, z, type, data);
+                                failures++;
                             }
                             
-                            debug("{0}/{1} blocks didn''t need restoring", rows.size() - successes - failures, rows.size());
+                            if(skipped > 0) debug("{0}/{1} blocks didn''t need restoring", skipped, rows.size());
+                            if(cancelled > 0) debug("{0}/{1} block restorations cancelled", cancelled, rows.size());
+                            if(failures > 0) debug("{0}/{1} blocks FAILED to restore", failures, rows.size());
                             debug("{0}/{1} blocks successfully restored", successes, rows.size());
-                            if(failures > 0) debug("{0}/{1} blocks failed", failures, rows.size());
                             
                             
                             
