@@ -397,7 +397,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 BlockRestoreEvent event = new BlockRestoreEvent(block, type, data);
                                 getServer().getPluginManager().callEvent(event);
                                 if(event.isCancelled()) {
-                                    debug("Restore cancelled for block at [{0} {1} {2}] to {3}:{4}", x, y, z, type, data);
+                                    // restore event cancelled, skip it
                                     cancelled++;
                                     continue;
                                 }
