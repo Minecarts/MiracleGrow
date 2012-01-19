@@ -252,7 +252,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
             
             final World world = entry.getKey();
             if(flushing.contains(world)) {
-                debug("Flush already in progress for world {0}...", world.getName());
+                debug("Flush already in progress for world \"{0}\"...", world.getName());
                 continue;
             }
             
@@ -261,17 +261,17 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
             HashSet<BlockStateRestore> set = entry.getValue();
             
             if(blocksTable == null || jobsTable == null) {
-                debug("Missing tables for world {0}, clearing world's block queue", world.getName());
+                debug("Missing tables for world \"{0}\", clearing world's block queue", world.getName());
                 set.clear();
                 continue;
             }
             
             if(set.isEmpty()) {
-                debug("No blocks in queue for world {0}, skipping", world.getName());
+                debug("No blocks in queue for world \"{0}\", skipping", world.getName());
                 continue;
             }
             
-            debug("Flushing block restore queue for world {0}", world.getName());
+            debug("Flushing block restore queue for world \"{0}\"", world.getName());
             flushing.add(world);
             
             
@@ -328,7 +328,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         for(final World world : worlds.keySet()) {
             
             if(restoring.contains(world)) {
-                debug("Restore already in progress for world {0}...", world.getName());
+                debug("Restore already in progress for world \"{0}\"...", world.getName());
                 continue;
             }
             
@@ -336,11 +336,11 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
             final String jobsTable = getTableName(world, "jobs");
             
             if(blocksTable == null || jobsTable == null) {
-                debug("Missing tables for world {0}, skipping restore", world.getName());
+                debug("Missing tables for world \"{0}\", skipping restore", world.getName());
                 continue;
             }
             
-            debug("Restoring blocks for world {0}", world);
+            debug("Restoring blocks for world \"{0}\"", world);
             restoring.add(world);
             
             
@@ -351,10 +351,10 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                 @Override
                 public void onAffected(Integer affected) {
                     if(affected > 0) {
-                        debug("Updated {0} rows for '{1}' restore job #{2,number,#}", affected, world.getName(), job);
+                        debug("Updated {0} rows for \"{1}\" restore job #{2,number,#}", affected, world.getName(), job);
                     }
                     else {
-                        debug("No rows updated for '{0}' restore job #{1,number,#}", world.getName(), job);
+                        debug("No rows updated for \"{0}\" restore job #{1,number,#}", world.getName(), job);
                         restoring.remove(world);
                         return;
                     }
@@ -368,10 +368,10 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                         @Override
                         public void onFetch(ArrayList<HashMap> rows) {
                             if(rows.size() > 0) {
-                                debug("Got {0} rows for '{1}' restore job #{2,number,#}", rows.size(), world.getName(), job);
+                                debug("Got {0} rows for \"{1}\" restore job #{2,number,#}", rows.size(), world.getName(), job);
                             }
                             else {
-                                debug("No rows found for '{0}' restore job #{1,number,#} ({1})", world.getName(), job);
+                                debug("No rows found for \"{0}\" restore job #{1,number,#} ({1})", world.getName(), job);
                                 restoring.remove(world);
                                 return;
                             }
@@ -387,7 +387,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 
                                 for(Entity entity : world.getChunkAt(x, z).getEntities()) {
                                     if(entity instanceof Player) {
-                                        debug("Player entity found in chunk [{0} {1}], skipping '{2}' restore job #{3,number,#}", x, z, world.getName(), job);
+                                        debug("Player entity found in chunk [{0} {1}], skipping \"{2}\" restore job #{3,number,#}", x, z, world.getName(), job);
                                         restoring.remove(world);
                                         return;
                                     }
@@ -424,7 +424,8 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 }
                                 
                                 if(event.skipJob()) {
-                                    debug("BlockRestoreEvent skipped entire '{0}' restore job #{1,number,#}", world.getName(), job);
+                                    debug("BlockRestoreEvent skipped entire \"{0}\" restore job #{1,number,#}", world.getName(), job);
+                                    restoring.remove(world);
                                     return;
                                 }
                                 
@@ -437,7 +438,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 failures++;
                             }
                             
-                            debug("'{0}' restore job #{1,number,#} results:", world.getName(), job);
+                            debug("\"{0}\" restore job #{1,number,#} results:", world.getName(), job);
                             if(skipped > 0) debug("{0}/{1} blocks didn''t need restoring", skipped, rows.size());
                             if(cancelled > 0) debug("{0}/{1} block restorations cancelled", cancelled, rows.size());
                             if(failures > 0) debug("{0}/{1} blocks FAILED to restore", failures, rows.size());
