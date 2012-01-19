@@ -8,6 +8,7 @@ import org.bukkit.Material;
 
 public class BlockRestoreEvent extends Event implements Cancellable {
     protected boolean cancelled = false;
+    protected boolean skipJob = false;
     protected Block block;
     protected int type;
     protected byte data;
@@ -22,8 +23,8 @@ public class BlockRestoreEvent extends Event implements Cancellable {
     public boolean isCancelled() {
         return cancelled;
     }
-    public void setCancelled(boolean cancelled) {
-        this.cancelled = cancelled;
+    public void setCancelled(boolean cancel) {
+        this.cancelled = cancel;
     }
     
     public Block getBlock() {
@@ -37,5 +38,12 @@ public class BlockRestoreEvent extends Event implements Cancellable {
     }
     public byte getNewBlockData() {
         return data;
+    }
+    
+    public boolean skipJob() {
+        return skipJob;
+    }
+    public void skipJob(boolean skip) {
+        this.skipJob = skip;
     }
 }

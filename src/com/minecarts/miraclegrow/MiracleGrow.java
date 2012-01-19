@@ -351,10 +351,10 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                 @Override
                 public void onAffected(Integer affected) {
                     if(affected > 0) {
-                        debug("Updated {0} rows for restore job #{1,number,#}", affected, job);
+                        debug("Updated {0} rows for '{1}' restore job #{2,number,#}", affected, world.getName(), job);
                     }
                     else {
-                        debug("No rows updated for restore job #{0,number,#}", job);
+                        debug("No rows updated for '{0}' restore job #{1,number,#}", world.getName(), job);
                         restoring.remove(world);
                         return;
                     }
@@ -368,10 +368,10 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                         @Override
                         public void onFetch(ArrayList<HashMap> rows) {
                             if(rows.size() > 0) {
-                                debug("Got {0} rows for restore job #{1,number,#}", rows.size(), job);
+                                debug("Got {0} rows for '{1}' restore job #{2,number,#}", rows.size(), world.getName(), job);
                             }
                             else {
-                                debug("No rows found for restore job #{0,number,#}", job);
+                                debug("No rows found for '{0}' restore job #{1,number,#} ({1})", world.getName(), job);
                                 restoring.remove(world);
                                 return;
                             }
@@ -387,7 +387,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 
                                 for(Entity entity : world.getChunkAt(x, z).getEntities()) {
                                     if(entity instanceof Player) {
-                                        debug("Player entity found in chunk [{0} {1}], skipping restore job #{2,number,#}", x, z, job);
+                                        debug("Player entity found in chunk [{0} {1}], skipping '{2}' restore job #{3,number,#}", x, z, world.getName(), job);
                                         restoring.remove(world);
                                         return;
                                     }
@@ -416,10 +416,16 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 
                                 BlockRestoreEvent event = new BlockRestoreEvent(block, type, data);
                                 getServer().getPluginManager().callEvent(event);
+                                
                                 if(event.isCancelled()) {
                                     // restore event cancelled, skip it
                                     cancelled++;
                                     continue;
+                                }
+                                
+                                if(event.skipJob()) {
+                                    debug("BlockRestoreEvent skipped entire '{0}' restore job #{1,number,#}", world.getName(), job);
+                                    return;
                                 }
                                 
                                 if(block.setTypeIdAndData(type, data, false)) {
@@ -431,6 +437,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 failures++;
                             }
                             
+                            debug("'{0}' restore job #{1,number,#} results:", world.getName(), job);
                             if(skipped > 0) debug("{0}/{1} blocks didn''t need restoring", skipped, rows.size());
                             if(cancelled > 0) debug("{0}/{1} block restorations cancelled", cancelled, rows.size());
                             if(failures > 0) debug("{0}/{1} blocks FAILED to restore", failures, rows.size());
@@ -476,7 +483,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                 debug("Query took {0,number,#} ms", query.elapsed());
             }
             else {
-                log("Slow query took {0,number,#} ms", query.elapsed());
+                log("Slow query took {0,number,#} ms\n{1}", query.elapsed(), query);
             }
         }
     }

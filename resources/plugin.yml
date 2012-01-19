@@ -9,7 +9,7 @@ depend: [DBQuery]
 
 commands:
   miraclegrow:
-    aliases: [mg, mgrow]
+    aliases: [mgrow]
     description: MiracleGrow internal commands
     usage: /<command> reload
     
