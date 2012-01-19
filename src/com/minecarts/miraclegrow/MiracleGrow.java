@@ -484,7 +484,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                 debug("Query took {0,number,#} ms", query.elapsed());
             }
             else {
-                log("Slow query took {0,number,#} ms\n{1}", query.elapsed(), query);
+                log("Slow query took {0,number,#} ms", query.elapsed());
             }
         }
     }
