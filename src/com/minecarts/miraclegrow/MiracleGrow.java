@@ -21,6 +21,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.World;
+import org.bukkit.Chunk;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
@@ -29,9 +30,11 @@ import org.bukkit.event.Event.Priority;
 import static org.bukkit.event.Event.Type.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Map.Entry;
+import java.util.Arrays;
 
 
 public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
@@ -374,6 +377,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                             int skipped = 0;
                             int cancelled = 0;
                             int failures = 0;
+                            HashSet<Chunk> chunks = new HashSet<Chunk>(Arrays.asList(world.getLoadedChunks()));
                             
                             for(HashMap<String, Integer> row : rows) {
                                 int x = row.get("x").intValue();
@@ -413,12 +417,20 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 failures++;
                             }
                             
+                            
                             debug("\"{0}\" restore job #{1,number,#} results:", world.getName(), job);
                             if(skipped > 0) debug("{0}/{1} blocks didn''t need restoring", skipped, rows.size());
                             if(cancelled > 0) debug("{0}/{1} block restorations cancelled", cancelled, rows.size());
                             if(failures > 0) debug("{0}/{1} blocks FAILED to restore", failures, rows.size());
                             debug("{0}/{1} blocks successfully restored", successes, rows.size());
                             
+                            // find difference of loaded chunks
+                            List<Chunk> loaded = Arrays.asList(world.getLoadedChunks());
+                            HashSet<Chunk> intersection = (HashSet<Chunk>) chunks.clone();
+                            intersection.retainAll(loaded);
+                            chunks.addAll(loaded);
+                            chunks.removeAll(intersection);
+                            debug("{0} new chunks loaded or unloaded during restore", chunks.size());
                             
                             
                             StringBuilder sql = new StringBuilder("DELETE FROM `").append(jobsTable).append("` WHERE `job`=?");
