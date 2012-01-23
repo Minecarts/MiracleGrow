@@ -372,6 +372,8 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 }
                             }
                             
+                            Stopwatch overall = new Stopwatch().start();
+                            Stopwatch events = new Stopwatch();
                             
                             int successes = 0;
                             int skipped = 0;
@@ -394,7 +396,9 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 }
                                 
                                 BlockRestoreEvent event = new BlockRestoreEvent(block, type, data);
+                                events.start();
                                 getServer().getPluginManager().callEvent(event);
+                                events.stop();
                                 
                                 if(event.isCancelled()) {
                                     // restore event cancelled, skip it
@@ -417,7 +421,6 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 failures++;
                             }
                             
-                            
                             debug("\"{0}\" restore job #{1,number,#} results:", world.getName(), job);
                             if(skipped > 0) debug("{0}/{1} blocks didn''t need restoring", skipped, rows.size());
                             if(cancelled > 0) debug("{0}/{1} block restorations cancelled", cancelled, rows.size());
@@ -431,6 +434,9 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                             chunks.addAll(loaded);
                             chunks.removeAll(intersection);
                             debug("{0} new chunks loaded or unloaded during restore", chunks.size());
+                            
+                            debug("{0} ms spent restoring blocks TOTAL", overall.stop().elapsed());
+                            debug("{0} ms spent in restore events", events.elapsed());
                             
                             
                             StringBuilder sql = new StringBuilder("DELETE FROM `").append(jobsTable).append("` WHERE `job`=?");
