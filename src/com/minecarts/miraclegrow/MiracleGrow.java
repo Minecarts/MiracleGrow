@@ -318,7 +318,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                 continue;
             }
             
-            debug("Restoring blocks for world \"{0}\"", world);
+            debug("Restoring blocks for world \"{0}\"", world.getName());
             restoring.add(world);
             
             
@@ -435,8 +435,8 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                             chunks.removeAll(intersection);
                             debug("{0} new chunks loaded or unloaded during restore", chunks.size());
                             
-                            debug("{0} ms spent restoring blocks TOTAL", overall.stop().elapsed());
-                            debug("{0} ms spent in restore events", events.elapsed());
+                            debug("{0,number,#} ms spent restoring blocks TOTAL", overall.stop().elapsed());
+                            debug("{0,number,#} ms spent in restore events", events.elapsed());
                             
                             
                             StringBuilder sql = new StringBuilder("DELETE FROM `").append(jobsTable).append("` WHERE `job`=?");
