@@ -90,31 +90,6 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         }
         
         
-        
-        /*
-            CREATE TABLE IF NOT EXISTS `MiracleGrow_world_blocks` (
-              `x` smallint(6) NOT NULL DEFAULT '0',
-              `y` tinyint(4) NOT NULL DEFAULT '0',
-              `z` smallint(6) NOT NULL DEFAULT '0',
-              `type` smallint(6) DEFAULT NULL,
-              `data` tinyint(4) DEFAULT NULL,
-              PRIMARY KEY (`x`,`y`,`z`)
-            ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-            
-            CREATE TABLE IF NOT EXISTS `MiracleGrow_world_jobs` (
-              `x` smallint(6) NOT NULL DEFAULT '0',
-              `y` tinyint(4) NOT NULL DEFAULT '0',
-              `z` smallint(6) NOT NULL DEFAULT '0',
-              `when` timestamp NULL DEFAULT NULL,
-              `job` int(11) DEFAULT NULL,
-              PRIMARY KEY (`x`,`y`,`z`),
-              INDEX `when` (`when`),
-              INDEX `job` (`job`)
-            ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-         */
-        
-        
-        
         getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
             public void run() {
                 if(flush) flushQueue();
@@ -278,27 +253,27 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
             final StringBuilder blocksSql = new StringBuilder("INSERT IGNORE INTO `").append(blocksTable).append("` (`x`, `y`, `z`, `type`, `data`) VALUES ");
             final ArrayList<Object> blocksParams = new ArrayList();
             
-            final StringBuilder jobsSql = new StringBuilder("INSERT INTO `").append(jobsTable).append("` (`x`, `y`, `z`, `when`) VALUES ");
+            final StringBuilder jobsSql = new StringBuilder("INSERT INTO `").append(jobsTable).append("` (`x`, `y`, `z`, `chunk_x`, `chunk_z`, `when`) VALUES ");
             final ArrayList<Object> jobsParams = new ArrayList();
 
             for(BlockStateRestore restore : set) {
                 int x = restore.state.getX();
                 int y = restore.state.getY();
                 int z = restore.state.getZ();
-                int type = restore.state.getTypeId();
-                byte data = restore.state.getData().getData();
                 
                 blocksSql.append("(?, ?, ?, ?, ?), ");
                 blocksParams.add(x);
                 blocksParams.add(y);
                 blocksParams.add(z);
-                blocksParams.add(type);
-                blocksParams.add(data);
+                blocksParams.add(restore.state.getTypeId());
+                blocksParams.add(restore.state.getData().getData());
                 
-                jobsSql.append("(?, ?, ?, TIMESTAMPADD(SECOND, ?, NOW())), ");
+                jobsSql.append("(?, ?, ?, ?, ?, TIMESTAMPADD(SECOND, ?, NOW())), ");
                 jobsParams.add(x);
                 jobsParams.add(y);
                 jobsParams.add(z);
+                jobsParams.add(restore.state.getChunk().getX());
+                jobsParams.add(restore.state.getChunk().getZ());
                 jobsParams.add(restore.seconds);
             }
             set.clear();
@@ -345,7 +320,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
             
             
             final int job = (int) (System.currentTimeMillis() / 1000L);
-            StringBuilder sql = new StringBuilder("UPDATE `").append(jobsTable).append("` SET `job`=? WHERE `when` <= NOW() ORDER BY `job`, `when` LIMIT ?");
+            StringBuilder sql = new StringBuilder("UPDATE `").append(jobsTable).append("` SET `job`=? WHERE `when` <= NOW() ORDER BY `chunk_x`, `chunk_z`, `job`, `when` LIMIT ?");
             
             new RestoreQuery(world, sql.toString()) {
                 @Override
@@ -362,7 +337,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                     StringBuilder sql = new StringBuilder("SELECT `jobs`.`x`, `jobs`.`y`, `jobs`.`z`, `blocks`.`type`, `blocks`.`data` FROM `").append(jobsTable).append("` AS `jobs` ")
                                                   .append("JOIN `").append(blocksTable).append("` AS `blocks` ON `blocks`.`x` = `jobs`.`x` AND `blocks`.`y` = `jobs`.`y` AND `blocks`.`z` = `jobs`.`z` ")
                                                   .append("WHERE `jobs`.`job`=? ")
-                                                  .append("ORDER BY `jobs`.`y`, `jobs`.`x`, `jobs`.`z`");
+                                                  .append("ORDER BY `jobs`.`chunk_x`, `jobs`.`chunk_z`");
                     
                     new RestoreQuery(world, sql.toString()) {
                         @Override
