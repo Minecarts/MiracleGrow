@@ -53,7 +53,6 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     protected boolean restore;
     protected int restoreInterval;
     protected int restoreJobSize;
-    protected boolean callEvents;
     
     protected HashMap<World, HashSet<BlockStateRestore>> queue = new HashMap<World, HashSet<BlockStateRestore>>();
     protected ArrayList<World> flushing = new ArrayList<World>();
@@ -137,10 +136,6 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         restoreInterval = Math.max(20, 20 * config.getInt("restore.interval"));
         restoreJobSize = Math.max(1, config.getInt("restore.jobSize"));
         debug("Restoring {1} blocks from database every {0} ticks", restoreInterval, restoreJobSize);
-        
-        
-        callEvents = config.getBoolean("callEvents");
-        if(!callEvents) log("Events will NOT be called!");
         
         
         ConfigurationSection worldsConfig = config.getConfigurationSection("worlds");
@@ -409,36 +404,27 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 blocks.put(block, state);
                             }
                             
-                            // call restore event
-                            if(callEvents) {
-                                RestoreBlocksEvent event = new RestoreBlocksEvent(blocks);
-                                events.start();
-                                getServer().getPluginManager().callEvent(event);
-                                events.stop();
+                            // custom event
+                            RestoreBlocksEvent event = new RestoreBlocksEvent(blocks);
+                            events.start();
+                            getServer().getPluginManager().callEvent(event);
+                            events.stop();
 
-                                if(event.isCancelled()) {
-                                    debug("RestoreBlocksEvent cancelled, skipping entire \"{0}\" restore job #{1,number,#}", world.getName(), job);
-                                    restoring.remove(world);
-                                    return;
-                                }
+                            if(event.isCancelled()) {
+                                debug("RestoreBlocksEvent cancelled, skipping entire \"{0}\" restore job #{1,number,#}", world.getName(), job);
+                                restoring.remove(world);
+                                return;
                             }
                             
                             // restore blocks
                             for(BlockState state : blocks.values()) {
-                                if(state.update(true)) {
-                                    successes++;
-                                }
-                                else {
-                                    debug("Failed to restore block at [{0} {1} {2}] to {3}", state.getX(), state.getY(), state.getZ(), state.getData());
-                                    failures++;
-                                }
+                                state.update(true);
                             }
                             
                             
                             debug("\"{0}\" restore job #{1,number,#} results:", world.getName(), job);
                             if(skipped > 0) debug("{0}/{1} blocks didn''t need restoring", skipped, rows.size());
-                            if(failures > 0) debug("{0}/{1} blocks FAILED to restore", failures, rows.size());
-                            debug("{0}/{1} blocks successfully restored", successes, rows.size());
+                            debug("{0}/{1} blocks successfully restored", blocks.size(), rows.size());
                             
                             // find difference of loaded chunks
                             List<Chunk> loaded = Arrays.asList(world.getLoadedChunks());
@@ -448,8 +434,8 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                             chunks.removeAll(intersection);
                             debug("{0} new chunks loaded or unloaded during restore", chunks.size());
                             
-                            debug("{0,number,#} ms spent restoring blocks TOTAL", overall.stop().elapsed());
-                            debug("{0,number,#} ms spent in restore events", events.elapsed());
+                            debug("{0,number,#} ms TOTAL spent restoring blocks", overall.stop().elapsed());
+                            debug("{0,number,#} ms spent in restore event", events.elapsed());
                             
                             
                             StringBuilder sql = new StringBuilder("DELETE FROM `").append(jobsTable).append("` WHERE `job`=?");
