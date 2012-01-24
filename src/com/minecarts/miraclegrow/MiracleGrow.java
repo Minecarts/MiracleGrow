@@ -122,8 +122,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     @Override
     public void reloadConfig() {
         super.reloadConfig();
-        
-        if(config == null) config = getConfig();
+        config = getConfig();
         
         debug = config.getBoolean("debug");
         provider = dbq.getProvider(config.getString("DBConnector.provider"));
