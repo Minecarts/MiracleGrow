@@ -36,7 +36,7 @@ import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Arrays;
 import org.bukkit.Material;
-
+import static org.bukkit.Material.*;
 
 public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     private static final Logger logger = Logger.getLogger("com.minecarts.miraclegrow"); 
@@ -376,9 +376,8 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                             Stopwatch overall = new Stopwatch().start();
                             Stopwatch events = new Stopwatch();
                             
-                            int successes = 0;
                             int skipped = 0;
-                            int failures = 0;
+                            int flowing = 0;
                             HashSet<Chunk> chunks = new HashSet<Chunk>(Arrays.asList(world.getLoadedChunks()));
                             HashMap<Block, BlockState> blocks = new HashMap<Block, BlockState>();
                             
@@ -391,10 +390,18 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                 byte data = row.get("data").byteValue();
                                 
                                 Block block = world.getBlockAt(x, y, z);
+                                
                                 if(type == block.getTypeId() && data == block.getData()) {
                                     // block is correct, no restore necessary
                                     skipped++;
                                     continue;
+                                }
+                                
+                                switch(block.getType()) {
+                                    case WATER:
+                                    case LAVA:
+                                        flowing++;
+                                        continue;
                                 }
                                 
                                 BlockState state = block.getState();
@@ -424,6 +431,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                             
                             debug("\"{0}\" restore job #{1,number,#} results:", world.getName(), job);
                             if(skipped > 0) debug("{0}/{1} blocks didn''t need restoring", skipped, rows.size());
+                            if(flowing > 0) debug("{0}/{1} blocks skipped due to flow (water/lava)", flowing, rows.size());
                             debug("{0}/{1} blocks successfully restored", blocks.size(), rows.size());
                             
                             // find difference of loaded chunks
