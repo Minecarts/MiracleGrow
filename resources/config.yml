@@ -8,6 +8,8 @@ restore:
   interval: 300 #5 minutes
   jobSize: 1000
 
+callEvents: true
+
 tables:
   blocks: MiracleGrow_%s_blocks
   jobs: MiracleGrow_%s_jobs

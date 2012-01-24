@@ -52,6 +52,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
     protected boolean restore;
     protected int restoreInterval;
     protected int restoreJobSize;
+    protected boolean callEvents;
     
     protected HashMap<World, HashSet<BlockStateRestore>> queue = new HashMap<World, HashSet<BlockStateRestore>>();
     protected ArrayList<World> flushing = new ArrayList<World>();
@@ -135,6 +136,10 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         restoreInterval = Math.max(20, 20 * config.getInt("restore.interval"));
         restoreJobSize = Math.max(1, config.getInt("restore.jobSize"));
         debug("Restoring {1} blocks from database every {0} ticks", restoreInterval, restoreJobSize);
+        
+        
+        callEvents = config.getBoolean("callEvents");
+        if(!callEvents) log("Events will NOT be called!");
         
         
         ConfigurationSection worldsConfig = config.getConfigurationSection("worlds");
@@ -395,21 +400,23 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                     continue;
                                 }
                                 
-                                BlockRestoreEvent event = new BlockRestoreEvent(block, type, data);
-                                events.start();
-                                getServer().getPluginManager().callEvent(event);
-                                events.stop();
-                                
-                                if(event.isCancelled()) {
-                                    // restore event cancelled, skip it
-                                    cancelled++;
-                                    continue;
-                                }
-                                
-                                if(event.skipJob()) {
-                                    debug("BlockRestoreEvent skipped entire \"{0}\" restore job #{1,number,#}", world.getName(), job);
-                                    restoring.remove(world);
-                                    return;
+                                if(callEvents) {
+                                    BlockRestoreEvent event = new BlockRestoreEvent(block, type, data);
+                                    events.start();
+                                    getServer().getPluginManager().callEvent(event);
+                                    events.stop();
+
+                                    if(event.isCancelled()) {
+                                        // restore event cancelled, skip it
+                                        cancelled++;
+                                        continue;
+                                    }
+
+                                    if(event.skipJob()) {
+                                        debug("BlockRestoreEvent skipped entire \"{0}\" restore job #{1,number,#}", world.getName(), job);
+                                        restoring.remove(world);
+                                        return;
+                                    }
                                 }
                                 
                                 if(block.setTypeIdAndData(type, data, false)) {
