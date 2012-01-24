@@ -218,7 +218,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
             queue.put(state.getWorld(), set);
         }
         
-        if(set.contains(restore)) set.remove(restore);
+        //if(set.contains(restore)) set.remove(restore);
         set.add(restore);
     }
     
