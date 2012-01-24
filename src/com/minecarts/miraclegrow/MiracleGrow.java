@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Arrays;
+import org.bukkit.Material;
 
 
 public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
@@ -382,10 +383,11 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                             
                             int successes = 0;
                             int skipped = 0;
-                            int cancelled = 0;
                             int failures = 0;
                             HashSet<Chunk> chunks = new HashSet<Chunk>(Arrays.asList(world.getLoadedChunks()));
+                            HashMap<Block, BlockState> blocks = new HashMap<Block, BlockState>();
                             
+                            // get blocks
                             for(HashMap<String, Integer> row : rows) {
                                 int x = row.get("x").intValue();
                                 int y = row.get("y").intValue();
@@ -400,37 +402,41 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                                     continue;
                                 }
                                 
-                                if(callEvents) {
-                                    BlockRestoreEvent event = new BlockRestoreEvent(block, type, data);
-                                    events.start();
-                                    getServer().getPluginManager().callEvent(event);
-                                    events.stop();
-
-                                    if(event.isCancelled()) {
-                                        // restore event cancelled, skip it
-                                        cancelled++;
-                                        continue;
-                                    }
-
-                                    if(event.skipJob()) {
-                                        debug("BlockRestoreEvent skipped entire \"{0}\" restore job #{1,number,#}", world.getName(), job);
-                                        restoring.remove(world);
-                                        return;
-                                    }
-                                }
+                                BlockState state = block.getState();
+                                state.setTypeId(type);
+                                state.getData().setData(data);
                                 
-                                if(block.setTypeIdAndData(type, data, false)) {
-                                    successes++;
-                                    continue;
-                                }
-                                
-                                debug("Failed to restore block at [{0} {1} {2}] to {3}:{4}", x, y, z, type, data);
-                                failures++;
+                                blocks.put(block, state);
                             }
+                            
+                            // call restore event
+                            if(callEvents) {
+                                RestoreBlocksEvent event = new RestoreBlocksEvent(blocks);
+                                events.start();
+                                getServer().getPluginManager().callEvent(event);
+                                events.stop();
+
+                                if(event.isCancelled()) {
+                                    debug("RestoreBlocksEvent cancelled, skipping entire \"{0}\" restore job #{1,number,#}", world.getName(), job);
+                                    restoring.remove(world);
+                                    return;
+                                }
+                            }
+                            
+                            // restore blocks
+                            for(BlockState state : blocks.values()) {
+                                if(state.update(true)) {
+                                    successes++;
+                                }
+                                else {
+                                    debug("Failed to restore block at [{0} {1} {2}] to {3}", state.getX(), state.getY(), state.getZ(), state.getData());
+                                    failures++;
+                                }
+                            }
+                            
                             
                             debug("\"{0}\" restore job #{1,number,#} results:", world.getName(), job);
                             if(skipped > 0) debug("{0}/{1} blocks didn''t need restoring", skipped, rows.size());
-                            if(cancelled > 0) debug("{0}/{1} block restorations cancelled", cancelled, rows.size());
                             if(failures > 0) debug("{0}/{1} blocks FAILED to restore", failures, rows.size());
                             debug("{0}/{1} blocks successfully restored", successes, rows.size());
                             
