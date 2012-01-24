@@ -54,6 +54,7 @@ public class BlockStateRestore {
             case MOB_SPAWNER:
                 seconds *= 4;
                 seconds += 60 * 60 * 24;
+                break;
                 
             case DIAMOND_ORE:
             case LAPIS_ORE:
@@ -63,6 +64,7 @@ public class BlockStateRestore {
             case GLOWSTONE:
                 seconds *= 3;
                 seconds += 60 * 60 * 24;
+                break;
                 
             case COAL_ORE:
             case CLAY:
@@ -82,12 +84,14 @@ public class BlockStateRestore {
             case NETHER_WARTS:
                 seconds *= 2;
                 seconds += 60 * 60 * 24;
+                break;
                 
             case SMOOTH_BRICK:
                 // mossy and cracked smooth brick
                 if(state.getData().getData() > 0) {
                     seconds *= 2;
                     seconds += 60 * 60 * 24;
+                    break;
                 }
             
         }
