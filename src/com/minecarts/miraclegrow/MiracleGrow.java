@@ -70,6 +70,7 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
                 
                 if(args[0].equalsIgnoreCase("reload")) {
                     MiracleGrow.this.reloadConfig();
+                    log("Config reloaded by {0}", sender.getName());
                     sender.sendMessage("MiracleGrow config reloaded.");
                     return true;
                 }
@@ -129,12 +130,12 @@ public class MiracleGrow extends org.bukkit.plugin.java.JavaPlugin {
         
         flush = !config.getBoolean("flush.disable");
         flushInterval = Math.max(20, 20 * config.getInt("flush.interval"));
-        debug("Flushing block restore queue to database every {0} ticks", flushInterval);
+        log("Flushing block restore queue to database every {0} ticks", flushInterval);
         
         restore = !config.getBoolean("restore.disable");
         restoreInterval = Math.max(20, 20 * config.getInt("restore.interval"));
         restoreJobSize = Math.max(1, config.getInt("restore.jobSize"));
-        debug("Restoring {1} blocks from database every {0} ticks", restoreInterval, restoreJobSize);
+        log("Restoring {1} blocks from database every {0} ticks", restoreInterval, restoreJobSize);
         
         
         ConfigurationSection worldsConfig = config.getConfigurationSection("worlds");
